@@ -52,8 +52,6 @@ requirements.txt      # Python dependencies
 README.md             # Main documentation
 ```
 
-Note: a mirrored copy of these scripts also exists under `files/`.
-
 ## Method Summary
 
 1. RUL labeling
