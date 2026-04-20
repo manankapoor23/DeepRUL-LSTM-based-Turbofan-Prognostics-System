@@ -64,16 +64,32 @@ DEVICE = torch.device("cpu")
 def parse_csv_sequence(csv_data: str) -> List[List[float]]:
     rows: List[List[float]] = []
     reader = csv.reader(io.StringIO(csv_data.strip()))
-    for row in reader:
+    for line_no, row in enumerate(reader, start=1):
         cleaned = [col.strip() for col in row if col.strip()]
-        if cleaned:
-            rows.append([float(v) for v in cleaned])
+        if not cleaned:
+            continue
+
+        try:
+            parsed = [float(v) for v in cleaned]
+        except ValueError as exc:
+            # Allow a single header row like: s_1,s_2,...
+            if not rows:
+                continue
+            raise ValueError(
+                f"csv_data row {line_no} contains non-numeric values. "
+                "Use only numeric values after the optional header row."
+            ) from exc
+
+        rows.append(parsed)
 
     if len(rows) != 30:
         raise ValueError("csv_data must contain exactly 30 rows")
-    for row in rows:
+    for i, row in enumerate(rows, start=1):
         if len(row) != FEATURE_COUNT:
-            raise ValueError(f"each csv_data row must contain exactly {FEATURE_COUNT} values")
+            raise ValueError(
+                f"each csv_data row must contain exactly {FEATURE_COUNT} values; "
+                f"row {i} has {len(row)}"
+            )
     return rows
 
 
