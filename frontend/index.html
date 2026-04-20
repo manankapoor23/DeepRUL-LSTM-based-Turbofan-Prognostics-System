@@ -361,7 +361,9 @@
       btnSimulate.disabled = false;
     });
 
-    dropZone.addEventListener("click", () => csvInput.click());
+    dropZone.addEventListener("click", (e) => { 
+      if (e.target !== csvInput) csvInput.click(); 
+    });
     dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
     dropZone.addEventListener("dragleave", () => { dropZone.classList.remove("dragover"); });
     dropZone.addEventListener("drop", async (e) => { e.preventDefault(); dropZone.classList.remove("dragover"); const f = e.dataTransfer?.files[0]; if(f) processFile(f); });
