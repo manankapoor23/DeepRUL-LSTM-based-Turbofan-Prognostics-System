@@ -3,180 +3,214 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Turbofan RUL Dashboard</title>
+  <title>Turbofan RUL Cockpit</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg: #0d1117;
-      --panel: #161b22;
-      --line: #30363d;
-      --text: #e6edf3;
-      --muted: #9da7b3;
+      --panel: #151d2a;
+      --line: #2a3445;
+      --text: #eef2f8;
+      --muted: #a5b3c8;
+      --green: #22c55e;
+      --yellow: #facc15;
       --amber: #f59e0b;
       --red: #ef4444;
-      --green: #22c55e;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      background: radial-gradient(1200px 600px at 10% -20%, #1f2937 0%, transparent 60%), var(--bg);
+      padding: 20px;
+      background: radial-gradient(circle at 10% -20%, #2a3a52 0%, transparent 45%), var(--bg);
       color: var(--text);
-      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      font-family: "IBM Plex Mono", Menlo, Consolas, monospace;
     }
 
-    .card {
-      width: min(900px, 100%);
-      background: linear-gradient(160deg, #171d27 0%, var(--panel) 80%);
+    .shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .header {
+      background: linear-gradient(130deg, #111926, #182437);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 24px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      border-radius: 16px;
+      padding: 16px;
     }
 
     h1 {
       margin: 0 0 8px;
-      font-size: 1.35rem;
-      letter-spacing: 0.4px;
+      font-size: 1.3rem;
     }
 
-    .subtitle {
-      margin: 0 0 18px;
+    .sub {
+      margin: 0;
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
 
-    .row {
+    .grid {
       display: grid;
       grid-template-columns: 1.2fr 1fr;
-      gap: 22px;
-      align-items: center;
+      gap: 16px;
     }
 
-    .gauge-wrap {
-      background: rgba(255, 255, 255, 0.02);
+    .panel {
+      background: linear-gradient(160deg, #141d2b, #151d2a);
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 16px;
       padding: 16px;
     }
 
-    svg {
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #e8edf7;
+    }
+
+    .gauge {
       width: 100%;
-      height: auto;
       display: block;
     }
 
     .readout {
       display: grid;
-      gap: 12px;
-      align-content: start;
+      gap: 10px;
+      margin-top: 10px;
     }
 
-    .metric {
-      background: rgba(255, 255, 255, 0.02);
+    .value-card {
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.01);
     }
 
-    .metric .label {
+    .label {
       color: var(--muted);
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       margin-bottom: 4px;
     }
 
-    .metric .value {
-      font-size: 1.18rem;
+    .big {
+      font-size: 1.45rem;
       font-weight: 700;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
     }
 
     .badge {
       display: inline-block;
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-radius: 999px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 700;
-      letter-spacing: 0.5px;
       border: 1px solid transparent;
     }
 
-    .badge.healthy { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.4); color: #86efac; }
-    .badge.monitor { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.45); color: #fcd34d; }
-    .badge.critical { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.45); color: #fca5a5; }
+    .badge.healthy { color: #86efac; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.45); }
+    .badge.moderate { color: #fde68a; background: rgba(250, 204, 21, 0.15); border-color: rgba(250, 204, 21, 0.45); }
+    .badge.critical { color: #fca5a5; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.45); }
 
-    button {
-      margin-top: 8px;
-      background: linear-gradient(90deg, #f59e0b, #fb923c);
-      color: #101214;
-      border: none;
-      border-radius: 10px;
-      padding: 12px 14px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    .controls {
+      display: grid;
+      gap: 10px;
     }
 
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.28);
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      background: linear-gradient(90deg, #f59e0b, #fb923c);
+      color: #111827;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    input[type="file"] {
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.01);
     }
 
     .hint {
-      margin-top: 10px;
       color: var(--muted);
       font-size: 0.8rem;
-      line-height: 1.5;
+      min-height: 18px;
     }
 
-    @media (max-width: 760px) {
-      .row { grid-template-columns: 1fr; }
+    .chart-wrap {
+      margin-top: 12px;
+      height: 220px;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Rolls-Royce Turbofan RUL Monitor</h1>
-    <p class="subtitle">MC Dropout inference over FD001 test sequences</p>
+  <div class="shell">
+    <section class="header">
+      <h1>Aircraft Engine Monitoring Console</h1>
+      <p class="sub">LSTM RUL + Monte Carlo Dropout uncertainty for predictive maintenance</p>
+    </section>
 
-    <div class="row">
-      <div class="gauge-wrap">
-        <svg viewBox="0 0 420 240" aria-label="RUL gauge">
-          <path id="gauge-track" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#28313b" stroke-width="22" stroke-linecap="round"></path>
-          <path id="gauge-fill" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#f59e0b" stroke-width="22" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534"></path>
-          <text x="210" y="155" text-anchor="middle" fill="#e6edf3" font-size="42" font-weight="700" id="gauge-value">--</text>
+    <div class="grid">
+      <section class="panel">
+        <h2>RUL Gauge</h2>
+        <svg viewBox="0 0 420 250" class="gauge" aria-label="RUL gauge">
+          <path d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#2b3441" stroke-width="22" stroke-linecap="round"></path>
+          <path d="M 40 200 A 170 170 0 0 1 153 53" fill="none" stroke="#ef4444" stroke-width="18" stroke-linecap="round"></path>
+          <path d="M 153 53 A 170 170 0 0 1 267 53" fill="none" stroke="#facc15" stroke-width="18" stroke-linecap="round"></path>
+          <path d="M 267 53 A 170 170 0 0 1 380 200" fill="none" stroke="#22c55e" stroke-width="18" stroke-linecap="round"></path>
+          <path id="gauge-fill" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534"></path>
+          <text id="gauge-value" x="210" y="152" text-anchor="middle" fill="#eef2f8" font-size="44" font-weight="700">--</text>
           <text x="210" y="182" text-anchor="middle" fill="#9da7b3" font-size="14">Remaining Useful Life (cycles)</text>
-          <text x="40" y="222" fill="#9da7b3" font-size="12">0</text>
-          <text x="368" y="222" fill="#9da7b3" font-size="12">125</text>
+          <text x="36" y="225" fill="#9da7b3" font-size="12">0</text>
+          <text x="365" y="225" fill="#9da7b3" font-size="12">125</text>
         </svg>
-      </div>
 
-      <div class="readout">
-        <div class="metric">
-          <div class="label">Mean RUL</div>
-          <div class="value" id="mean-rul">-- cycles</div>
+        <div class="readout">
+          <div class="value-card">
+            <div class="label">Remaining Useful Life (cycles)</div>
+            <div class="big" id="rul-value">--</div>
+          </div>
+          <div class="value-card">
+            <div class="label">Uncertainty</div>
+            <div class="big" id="uncertainty-value">+- --</div>
+          </div>
+          <div class="value-card">
+            <div class="label">Engine Status</div>
+            <span class="badge moderate" id="status-badge">MODERATE</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Inference Controls</h2>
+        <div class="controls">
+          <button class="btn" id="simulate-btn">Simulate Engine</button>
+          <label class="label" for="csv-input">Upload CSV (30 rows x 14 columns)</label>
+          <input id="csv-input" type="file" accept=".csv,text/csv" />
+          <button class="btn" id="csv-btn">Predict From CSV</button>
+          <div class="hint" id="hint">API: http://localhost:8000/predict_rul</div>
         </div>
 
-        <div class="metric">
-          <div class="label">Uncertainty</div>
-          <div class="value" id="std-rul">+- -- cycles</div>
+        <div class="chart-wrap">
+          <canvas id="trend-chart"></canvas>
         </div>
-
-        <div class="metric">
-          <div class="label">Status</div>
-          <span class="badge monitor" id="status-badge">MONITOR</span>
-        </div>
-
-        <button id="simulate-btn">Simulate Engine</button>
-        <div class="hint" id="hint">Backend URL: http://localhost:8000/predict_rul</div>
-      </div>
+      </section>
     </div>
   </div>
 
@@ -186,109 +220,159 @@
 
     const fillPath = document.getElementById("gauge-fill");
     const gaugeValue = document.getElementById("gauge-value");
-    const meanRulEl = document.getElementById("mean-rul");
-    const stdRulEl = document.getElementById("std-rul");
+    const rulValue = document.getElementById("rul-value");
+    const uncertaintyValue = document.getElementById("uncertainty-value");
     const statusBadge = document.getElementById("status-badge");
     const hint = document.getElementById("hint");
-    const button = document.getElementById("simulate-btn");
+    const simulateBtn = document.getElementById("simulate-btn");
+    const csvBtn = document.getElementById("csv-btn");
+    const csvInput = document.getElementById("csv-input");
 
     let cachedSamples = null;
+    let trendChart = null;
+    const trendLabels = [];
+    const trendValues = [];
 
-    function lerp(a, b, t) {
-      return a + (b - a) * t;
+    function clamp(value, low, high) {
+      return Math.max(low, Math.min(high, value));
     }
 
-    function blendColor(from, to, t) {
-      const r = Math.round(lerp(from[0], to[0], t));
-      const g = Math.round(lerp(from[1], to[1], t));
-      const b = Math.round(lerp(from[2], to[2], t));
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-
-    function updateGauge(meanRul) {
-      const clamped = Math.max(0, Math.min(125, meanRul));
+    function updateGauge(rul) {
+      const clamped = clamp(rul, 0, 125);
       const progress = clamped / 125;
       const pathLength = 534;
       fillPath.style.strokeDashoffset = String(pathLength * (1 - progress));
-
-      // Higher RUL -> amber, lower RUL -> red.
-      const amber = [245, 158, 11];
-      const red = [239, 68, 68];
-      fillPath.style.stroke = blendColor(red, amber, progress);
-
       gaugeValue.textContent = clamped.toFixed(1);
+      rulValue.textContent = `${clamped.toFixed(1)} cycles`;
     }
 
-    function updateStatus(meanRul) {
+    function updateStatus(rul) {
       statusBadge.className = "badge";
-      if (meanRul > 80) {
+      if (rul > 80) {
         statusBadge.classList.add("healthy");
         statusBadge.textContent = "HEALTHY";
-      } else if (meanRul >= 40) {
-        statusBadge.classList.add("monitor");
-        statusBadge.textContent = "MONITOR";
+      } else if (rul >= 40) {
+        statusBadge.classList.add("moderate");
+        statusBadge.textContent = "MODERATE";
       } else {
         statusBadge.classList.add("critical");
         statusBadge.textContent = "CRITICAL";
       }
     }
 
-    async function loadSampleSequences() {
-      if (cachedSamples) return cachedSamples;
-      const res = await fetch(SAMPLE_URL);
-      if (!res.ok) {
-        throw new Error("Unable to load sample test sequences. Run preprocessing notebook first.");
+    function updateTrend(rul) {
+      trendLabels.push(`#${trendLabels.length + 1}`);
+      trendValues.push(rul);
+      if (trendLabels.length > 15) {
+        trendLabels.shift();
+        trendValues.shift();
       }
-      const data = await res.json();
-      cachedSamples = data.samples;
+      trendChart.update();
+    }
+
+    function initChart() {
+      const ctx = document.getElementById("trend-chart");
+      trendChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: trendLabels,
+          datasets: [{
+            label: "Predicted RUL",
+            data: trendValues,
+            borderColor: "#f59e0b",
+            borderWidth: 2,
+            tension: 0.25,
+            pointRadius: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: "#cfd8e6" } },
+          },
+          scales: {
+            x: { ticks: { color: "#9da7b3" }, grid: { color: "#263244" } },
+            y: { ticks: { color: "#9da7b3" }, grid: { color: "#263244" } },
+          },
+        },
+      });
+    }
+
+    async function loadSamples() {
+      if (cachedSamples) return cachedSamples;
+      const response = await fetch(SAMPLE_URL);
+      if (!response.ok) {
+        throw new Error("Sample data missing. Run preprocessing first.");
+      }
+      const payload = await response.json();
+      cachedSamples = payload.samples;
       return cachedSamples;
     }
 
-    function pickRandomSample(samples) {
-      const idx = Math.floor(Math.random() * samples.length);
-      return { idx, sequence: samples[idx] };
+    async function callApi(payload) {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      return response.json();
     }
 
-    async function simulate() {
-      button.disabled = true;
-      button.textContent = "Running...";
+    function applyPrediction(result) {
+      updateGauge(result.rul);
+      updateStatus(result.rul);
+      uncertaintyValue.textContent = `+- ${result.uncertainty.toFixed(2)} cycles`;
+      hint.textContent = `95% CI: [${result.confidence_interval_95[0].toFixed(1)}, ${result.confidence_interval_95[1].toFixed(1)}]`;
+      updateTrend(result.rul);
+    }
 
+    async function runSimulation() {
+      simulateBtn.disabled = true;
+      simulateBtn.textContent = "Running...";
       try {
-        const samples = await loadSampleSequences();
-        const picked = pickRandomSample(samples);
-
-        const payload = {
-          engine_id: picked.idx + 1,
-          sequence: picked.sequence,
-        };
-
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const msg = await response.text();
-          throw new Error(`API error: ${msg}`);
-        }
-
-        const result = await response.json();
-        meanRulEl.textContent = `${result.mean_rul.toFixed(1)} cycles`;
-        stdRulEl.textContent = `+- ${result.std_rul.toFixed(1)} cycles`;
-        updateGauge(result.mean_rul);
-        updateStatus(result.mean_rul);
-        hint.textContent = `95% CI: [${result.confidence_interval_95[0].toFixed(1)}, ${result.confidence_interval_95[1].toFixed(1)}]`;
+        const samples = await loadSamples();
+        const idx = Math.floor(Math.random() * samples.length);
+        const result = await callApi({ engine_id: idx + 1, sequence: samples[idx] });
+        applyPrediction(result);
       } catch (error) {
-        hint.textContent = error.message;
+        hint.textContent = String(error.message || error);
       } finally {
-        button.disabled = false;
-        button.textContent = "Simulate Engine";
+        simulateBtn.disabled = false;
+        simulateBtn.textContent = "Simulate Engine";
       }
     }
 
-    button.addEventListener("click", simulate);
-    updateGauge(62.5);
+    async function runCsvPrediction() {
+      if (!csvInput.files.length) {
+        hint.textContent = "Choose a CSV file first.";
+        return;
+      }
+
+      csvBtn.disabled = true;
+      csvBtn.textContent = "Running...";
+      try {
+        const text = await csvInput.files[0].text();
+        const result = await callApi({ engine_id: 999, csv_data: text });
+        applyPrediction(result);
+      } catch (error) {
+        hint.textContent = String(error.message || error);
+      } finally {
+        csvBtn.disabled = false;
+        csvBtn.textContent = "Predict From CSV";
+      }
+    }
+
+    initChart();
+    updateGauge(62.0);
+    updateStatus(62.0);
+    simulateBtn.addEventListener("click", runSimulation);
+    csvBtn.addEventListener("click", runCsvPrediction);
   </script>
 </body>
 </html>

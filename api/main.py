@@ -1,3 +1,5 @@
+import csv
+import io
 from pathlib import Path
 from typing import List
 
@@ -10,12 +12,15 @@ from model.lstm_model import LSTMRULModel, mc_dropout_predict
 
 
 class PredictRequest(BaseModel):
-    engine_id: int = Field(..., ge=0)
-    sequence: List[List[float]]
+    engine_id: int = Field(0, ge=0)
+    sequence: List[List[float]] | None = None
+    csv_data: str | None = None
 
-    @field_validator("sequence")
+    @field_validator("sequence", mode="before")
     @classmethod
-    def validate_sequence_shape(cls, value: List[List[float]]):
+    def validate_sequence_shape(cls, value):
+        if value is None:
+            return value
         if len(value) != 30:
             raise ValueError("sequence must have exactly 30 timesteps")
         for row in value:
@@ -25,9 +30,8 @@ class PredictRequest(BaseModel):
 
 
 class PredictResponse(BaseModel):
-    engine_id: int
-    mean_rul: float
-    std_rul: float
+    rul: float
+    uncertainty: float
     confidence_interval_95: List[float]
 
 
@@ -47,12 +51,32 @@ app.add_middleware(
 MODEL_PATH = Path("model/best_model.pth")
 MODEL = None
 DEVICE = torch.device("cpu")
+RUL_CAP = 125.0
+
+
+def parse_csv_sequence(csv_data: str) -> List[List[float]]:
+    rows: List[List[float]] = []
+    reader = csv.reader(io.StringIO(csv_data.strip()))
+    for row in reader:
+        cleaned = [col.strip() for col in row if col.strip() != ""]
+        if not cleaned:
+            continue
+        rows.append([float(v) for v in cleaned])
+
+    if len(rows) != 30:
+        raise ValueError("csv_data must contain exactly 30 rows")
+
+    for row in rows:
+        if len(row) != 14:
+            raise ValueError("each csv_data row must contain exactly 14 values")
+
+    return rows
 
 
 @app.on_event("startup")
 def load_model_once() -> None:
     global MODEL
-    model = LSTMRULModel(input_size=14, hidden_size=64, num_layers=2, dropout=0.3)
+    model = LSTMRULModel(input_size=14, hidden_size=128, num_layers=2, dropout=0.2)
 
     if not MODEL_PATH.exists():
         MODEL = None
@@ -77,17 +101,24 @@ def predict_rul(payload: PredictRequest) -> PredictResponse:
             detail="Model checkpoint not found. Train the model to create model/best_model.pth first.",
         )
 
-    sequence_tensor = torch.tensor([payload.sequence], dtype=torch.float32, device=DEVICE)
+    if payload.sequence is None and payload.csv_data is None:
+        raise HTTPException(status_code=422, detail="Provide either 'sequence' or 'csv_data'.")
+
+    try:
+        sequence = payload.sequence if payload.sequence is not None else parse_csv_sequence(payload.csv_data or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    sequence_tensor = torch.tensor([sequence], dtype=torch.float32, device=DEVICE)
     mean, std = mc_dropout_predict(MODEL, sequence_tensor, n_passes=50)
 
-    mean_rul = float(mean.item())
-    std_rul = float(std.item())
-    ci_low = mean_rul - 1.96 * std_rul
-    ci_high = mean_rul + 1.96 * std_rul
+    rul = float(mean.item()) * RUL_CAP
+    uncertainty = float(std.item()) * RUL_CAP
+    ci_low = rul - 1.96 * uncertainty
+    ci_high = rul + 1.96 * uncertainty
 
     return PredictResponse(
-        engine_id=payload.engine_id,
-        mean_rul=round(mean_rul, 1),
-        std_rul=round(std_rul, 1),
+        rul=round(rul, 1),
+        uncertainty=round(uncertainty, 2),
         confidence_interval_95=[round(ci_low, 1), round(ci_high, 1)],
     )

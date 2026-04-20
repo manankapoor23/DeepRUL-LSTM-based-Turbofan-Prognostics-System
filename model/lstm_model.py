@@ -5,7 +5,7 @@ import torch.nn as nn
 class LSTMRULModel(nn.Module):
     """LSTM regressor for turbofan RUL prediction."""
 
-    def __init__(self, input_size: int = 14, hidden_size: int = 64, num_layers: int = 2, dropout: float = 0.3):
+    def __init__(self, input_size: int = 14, hidden_size: int = 128, num_layers: int = 2, dropout: float = 0.2):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -14,13 +14,14 @@ class LSTMRULModel(nn.Module):
             dropout=dropout,
             batch_first=True,
         )
+        self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(hidden_size, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Use the final timestep representation for scalar RUL regression.
         out, _ = self.lstm(x)
         last_hidden = out[:, -1, :]
-        return self.fc(last_hidden).squeeze(-1)
+        return self.fc(self.dropout(last_hidden)).squeeze(-1)
 
 
 def mc_dropout_predict(model: nn.Module, x: torch.Tensor, n_passes: int = 50):
