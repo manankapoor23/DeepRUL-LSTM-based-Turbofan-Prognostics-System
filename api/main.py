@@ -3,6 +3,7 @@ from typing import List
 
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from model.lstm_model import LSTMRULModel, mc_dropout_predict
@@ -31,6 +32,17 @@ class PredictResponse(BaseModel):
 
 
 app = FastAPI(title="Turbofan RUL Inference API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 MODEL_PATH = Path("model/best_model.pth")
 MODEL = None
