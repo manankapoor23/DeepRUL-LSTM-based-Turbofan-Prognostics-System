@@ -1,6 +1,6 @@
-# FD004-Only Turbofan RUL Project (Fresh Reset)
+# FD004-Only Turbofan RUL Project
 
-This repository was reset to a clean state and now uses only NASA C-MAPSS FD004 data.
+This repository uses only NASA C-MAPSS FD004 data.
 
 ## What is included
 
