@@ -3,9 +3,9 @@ import torch.nn as nn
 
 
 class LSTMRULModel(nn.Module):
-    """LSTM regressor for turbofan RUL prediction."""
+    """Simple LSTM regressor for RUL prediction."""
 
-    def __init__(self, input_size: int = 14, hidden_size: int = 128, num_layers: int = 2, dropout: float = 0.2):
+    def __init__(self, input_size: int, hidden_size: int = 128, num_layers: int = 2, dropout: float = 0.2):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -15,24 +15,21 @@ class LSTMRULModel(nn.Module):
             batch_first=True,
         )
         self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(hidden_size, 1)
+        self.head = nn.Linear(hidden_size, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Use the final timestep representation for scalar RUL regression.
         out, _ = self.lstm(x)
-        last_hidden = out[:, -1, :]
-        return self.fc(self.dropout(last_hidden)).squeeze(-1)
+        last = out[:, -1, :]
+        return self.head(self.dropout(last)).squeeze(-1)
 
 
 def mc_dropout_predict(model: nn.Module, x: torch.Tensor, n_passes: int = 50):
-    """Run MC Dropout inference and return mean/std predictions."""
-    model.train()  # Keep dropout active at inference time.
+    """Monte Carlo dropout inference returning mean and std predictions."""
+    model.train()
     preds = []
     with torch.no_grad():
         for _ in range(n_passes):
             preds.append(model(x).cpu())
 
     stacked = torch.stack(preds, dim=0)
-    mean = stacked.mean(dim=0)
-    std = stacked.std(dim=0)
-    return mean, std
+    return stacked.mean(dim=0), stacked.std(dim=0)

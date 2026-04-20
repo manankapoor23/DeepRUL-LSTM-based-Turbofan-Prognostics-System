@@ -3,213 +3,116 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Turbofan RUL Cockpit</title>
+  <title>FD004 RUL Cockpit</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --bg: #0d1117;
-      --panel: #151d2a;
-      --line: #2a3445;
-      --text: #eef2f8;
-      --muted: #a5b3c8;
-      --green: #22c55e;
-      --yellow: #facc15;
-      --amber: #f59e0b;
-      --red: #ef4444;
+      --bg: #0b1220;
+      --panel: #121b2f;
+      --line: #293550;
+      --text: #edf2ff;
+      --muted: #9fb0d1;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       min-height: 100vh;
-      padding: 20px;
-      background: radial-gradient(circle at 10% -20%, #2a3a52 0%, transparent 45%), var(--bg);
-      color: var(--text);
+      padding: 24px;
       font-family: "IBM Plex Mono", Menlo, Consolas, monospace;
+      color: var(--text);
+      background: radial-gradient(circle at 10% 0%, #23335c 0%, transparent 50%), var(--bg);
     }
-
-    .shell {
-      max-width: 1100px;
-      margin: 0 auto;
-      display: grid;
-      gap: 16px;
-    }
-
-    .header {
-      background: linear-gradient(130deg, #111926, #182437);
+    .shell { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+    .head, .panel {
+      background: linear-gradient(160deg, #111a2d, #121b2f);
       border: 1px solid var(--line);
       border-radius: 16px;
       padding: 16px;
     }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 1.3rem;
-    }
-
-    .sub {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 16px;
-    }
-
-    .panel {
-      background: linear-gradient(160deg, #141d2b, #151d2a);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 16px;
-    }
-
-    .panel h2 {
-      margin: 0 0 10px;
-      font-size: 1rem;
-      color: #e8edf7;
-    }
-
-    .gauge {
-      width: 100%;
-      display: block;
-    }
-
-    .readout {
-      display: grid;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .value-card {
+    .head h1 { margin: 0 0 6px; font-size: 1.2rem; }
+    .head p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    .row { display: grid; gap: 10px; }
+    .value {
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 10px;
-      background: rgba(255, 255, 255, 0.01);
+      background: rgba(255,255,255,0.01);
     }
-
-    .label {
-      color: var(--muted);
-      font-size: 0.8rem;
-      margin-bottom: 4px;
-    }
-
-    .big {
-      font-size: 1.45rem;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      border: 1px solid transparent;
-    }
-
-    .badge.healthy { color: #86efac; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.45); }
-    .badge.moderate { color: #fde68a; background: rgba(250, 204, 21, 0.15); border-color: rgba(250, 204, 21, 0.45); }
-    .badge.critical { color: #fca5a5; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.45); }
-
-    .controls {
-      display: grid;
-      gap: 10px;
-    }
-
+    .label { color: var(--muted); font-size: 0.8rem; margin-bottom: 4px; }
+    .big { font-size: 1.5rem; font-weight: 700; }
     .btn {
       border: 0;
       border-radius: 10px;
-      padding: 11px 12px;
+      padding: 11px;
       font-weight: 700;
       cursor: pointer;
       font-family: inherit;
+      color: #14191f;
       background: linear-gradient(90deg, #f59e0b, #fb923c);
-      color: #111827;
     }
-
-    .btn:hover { transform: translateY(-1px); }
-
     input[type="file"] {
-      color: var(--muted);
+      width: 100%;
       border: 1px dashed var(--line);
       border-radius: 10px;
       padding: 8px;
-      width: 100%;
-      background: rgba(255, 255, 255, 0.01);
-    }
-
-    .hint {
       color: var(--muted);
+      background: transparent;
+    }
+    .hint { color: var(--muted); min-height: 20px; font-size: 0.8rem; }
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 6px 10px;
       font-size: 0.8rem;
-      min-height: 18px;
+      font-weight: 700;
     }
-
-    .chart-wrap {
-      margin-top: 12px;
-      height: 220px;
-    }
-
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
-    }
+    .healthy { color: #86efac; border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.14); }
+    .moderate { color: #fde68a; border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.14); }
+    .critical { color: #fca5a5; border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.14); }
+    .chart { height: 220px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="shell">
-    <section class="header">
-      <h1>Aircraft Engine Monitoring Console</h1>
-      <p class="sub">LSTM RUL + Monte Carlo Dropout uncertainty for predictive maintenance</p>
+    <section class="head">
+      <h1>FD004 Engine RUL Console</h1>
+      <p>Fresh project reset: only FD004 data, LSTM + MC Dropout uncertainty.</p>
     </section>
 
     <div class="grid">
       <section class="panel">
-        <h2>RUL Gauge</h2>
-        <svg viewBox="0 0 420 250" class="gauge" aria-label="RUL gauge">
+        <svg viewBox="0 0 420 250" aria-label="RUL gauge" style="width:100%;display:block">
           <path d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#2b3441" stroke-width="22" stroke-linecap="round"></path>
           <path d="M 40 200 A 170 170 0 0 1 153 53" fill="none" stroke="#ef4444" stroke-width="18" stroke-linecap="round"></path>
-          <path d="M 153 53 A 170 170 0 0 1 267 53" fill="none" stroke="#facc15" stroke-width="18" stroke-linecap="round"></path>
+          <path d="M 153 53 A 170 170 0 0 1 267 53" fill="none" stroke="#f59e0b" stroke-width="18" stroke-linecap="round"></path>
           <path d="M 267 53 A 170 170 0 0 1 380 200" fill="none" stroke="#22c55e" stroke-width="18" stroke-linecap="round"></path>
-          <path id="gauge-fill" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534"></path>
-          <text id="gauge-value" x="210" y="152" text-anchor="middle" fill="#eef2f8" font-size="44" font-weight="700">--</text>
-          <text x="210" y="182" text-anchor="middle" fill="#9da7b3" font-size="14">Remaining Useful Life (cycles)</text>
-          <text x="36" y="225" fill="#9da7b3" font-size="12">0</text>
-          <text x="365" y="225" fill="#9da7b3" font-size="12">125</text>
+          <path id="fill" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534"></path>
+          <text id="gauge" x="210" y="150" text-anchor="middle" fill="#edf2ff" font-size="44" font-weight="700">--</text>
+          <text x="210" y="182" text-anchor="middle" fill="#9fb0d1" font-size="14">Predicted RUL (cycles)</text>
+          <text x="36" y="225" fill="#9fb0d1" font-size="12">0</text>
+          <text x="365" y="225" fill="#9fb0d1" font-size="12">125</text>
         </svg>
 
-        <div class="readout">
-          <div class="value-card">
-            <div class="label">Remaining Useful Life (cycles)</div>
-            <div class="big" id="rul-value">--</div>
-          </div>
-          <div class="value-card">
-            <div class="label">Uncertainty</div>
-            <div class="big" id="uncertainty-value">+- --</div>
-          </div>
-          <div class="value-card">
-            <div class="label">Engine Status</div>
-            <span class="badge moderate" id="status-badge">MODERATE</span>
-          </div>
+        <div class="row">
+          <div class="value"><div class="label">RUL</div><div class="big" id="rul">--</div></div>
+          <div class="value"><div class="label">Uncertainty</div><div class="big" id="unc">+- --</div></div>
+          <div class="value"><div class="label">Status</div><span id="badge" class="badge moderate">MODERATE</span></div>
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Inference Controls</h2>
-        <div class="controls">
-          <button class="btn" id="simulate-btn">Simulate Engine</button>
-          <label class="label" for="csv-input">Upload CSV (30 rows x 14 columns)</label>
-          <input id="csv-input" type="file" accept=".csv,text/csv" />
-          <button class="btn" id="csv-btn">Predict From CSV</button>
-          <div class="hint" id="hint">API: http://localhost:8000/predict_rul</div>
-        </div>
-
-        <div class="chart-wrap">
-          <canvas id="trend-chart"></canvas>
-        </div>
+      <section class="panel row">
+        <button id="simulate" class="btn">Simulate FD004 Engine</button>
+        <label class="label" for="csv">Upload CSV (30 rows x 15 columns)</label>
+        <input id="csv" type="file" accept=".csv,text/csv" />
+        <button id="predictCsv" class="btn">Predict From CSV</button>
+        <div id="hint" class="hint">API: http://localhost:8000/predict_rul</div>
+        <div class="chart"><canvas id="trend"></canvas></div>
       </section>
     </div>
   </div>
@@ -218,150 +121,117 @@
     const API_URL = "http://localhost:8000/predict_rul";
     const SAMPLE_URL = "../data/processed/test_sequences_sample.json";
 
-    const fillPath = document.getElementById("gauge-fill");
-    const gaugeValue = document.getElementById("gauge-value");
-    const rulValue = document.getElementById("rul-value");
-    const uncertaintyValue = document.getElementById("uncertainty-value");
-    const statusBadge = document.getElementById("status-badge");
+    const fill = document.getElementById("fill");
+    const gauge = document.getElementById("gauge");
+    const rul = document.getElementById("rul");
+    const unc = document.getElementById("unc");
+    const badge = document.getElementById("badge");
     const hint = document.getElementById("hint");
-    const simulateBtn = document.getElementById("simulate-btn");
-    const csvBtn = document.getElementById("csv-btn");
-    const csvInput = document.getElementById("csv-input");
+    const simulateBtn = document.getElementById("simulate");
+    const csvBtn = document.getElementById("predictCsv");
+    const csvInput = document.getElementById("csv");
 
-    let cachedSamples = null;
-    let trendChart = null;
-    const trendLabels = [];
-    const trendValues = [];
+    const labels = [];
+    const values = [];
+    let chart = null;
+    let cached = null;
 
-    function clamp(value, low, high) {
-      return Math.max(low, Math.min(high, value));
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function setGauge(v) {
+      const x = clamp(v, 0, 125);
+      const progress = x / 125;
+      const len = 534;
+      fill.style.strokeDashoffset = String(len * (1 - progress));
+      gauge.textContent = x.toFixed(1);
+      rul.textContent = `${x.toFixed(1)} cycles`;
     }
 
-    function updateGauge(rul) {
-      const clamped = clamp(rul, 0, 125);
-      const progress = clamped / 125;
-      const pathLength = 534;
-      fillPath.style.strokeDashoffset = String(pathLength * (1 - progress));
-      gaugeValue.textContent = clamped.toFixed(1);
-      rulValue.textContent = `${clamped.toFixed(1)} cycles`;
+    function setStatus(v) {
+      badge.className = "badge";
+      if (v > 80) { badge.classList.add("healthy"); badge.textContent = "HEALTHY"; }
+      else if (v >= 40) { badge.classList.add("moderate"); badge.textContent = "MODERATE"; }
+      else { badge.classList.add("critical"); badge.textContent = "CRITICAL"; }
     }
 
-    function updateStatus(rul) {
-      statusBadge.className = "badge";
-      if (rul > 80) {
-        statusBadge.classList.add("healthy");
-        statusBadge.textContent = "HEALTHY";
-      } else if (rul >= 40) {
-        statusBadge.classList.add("moderate");
-        statusBadge.textContent = "MODERATE";
-      } else {
-        statusBadge.classList.add("critical");
-        statusBadge.textContent = "CRITICAL";
-      }
-    }
-
-    function updateTrend(rul) {
-      trendLabels.push(`#${trendLabels.length + 1}`);
-      trendValues.push(rul);
-      if (trendLabels.length > 15) {
-        trendLabels.shift();
-        trendValues.shift();
-      }
-      trendChart.update();
+    function pushTrend(v) {
+      labels.push(`#${labels.length + 1}`);
+      values.push(v);
+      if (labels.length > 15) { labels.shift(); values.shift(); }
+      chart.update();
     }
 
     function initChart() {
-      const ctx = document.getElementById("trend-chart");
-      trendChart = new Chart(ctx, {
+      chart = new Chart(document.getElementById("trend"), {
         type: "line",
-        data: {
-          labels: trendLabels,
-          datasets: [{
-            label: "Predicted RUL",
-            data: trendValues,
-            borderColor: "#f59e0b",
-            borderWidth: 2,
-            tension: 0.25,
-            pointRadius: 2,
-          }],
-        },
+        data: { labels, datasets: [{ label: "Predicted RUL", data: values, borderColor: "#f59e0b", borderWidth: 2, tension: 0.25, pointRadius: 2 }] },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: { labels: { color: "#cfd8e6" } },
-          },
+          plugins: { legend: { labels: { color: "#cbd5e1" } } },
           scales: {
-            x: { ticks: { color: "#9da7b3" }, grid: { color: "#263244" } },
-            y: { ticks: { color: "#9da7b3" }, grid: { color: "#263244" } },
+            x: { ticks: { color: "#94a3b8" }, grid: { color: "#273449" } },
+            y: { ticks: { color: "#94a3b8" }, grid: { color: "#273449" } },
           },
         },
       });
     }
 
     async function loadSamples() {
-      if (cachedSamples) return cachedSamples;
-      const response = await fetch(SAMPLE_URL);
-      if (!response.ok) {
-        throw new Error("Sample data missing. Run preprocessing first.");
-      }
-      const payload = await response.json();
-      cachedSamples = payload.samples;
-      return cachedSamples;
+      if (cached) return cached;
+      const res = await fetch(SAMPLE_URL);
+      if (!res.ok) throw new Error("Sample data missing. Run preprocess first.");
+      cached = (await res.json()).samples;
+      return cached;
     }
 
     async function callApi(payload) {
-      const response = await fetch(API_URL, {
+      const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      return response.json();
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
     }
 
-    function applyPrediction(result) {
-      updateGauge(result.rul);
-      updateStatus(result.rul);
-      uncertaintyValue.textContent = `+- ${result.uncertainty.toFixed(2)} cycles`;
-      hint.textContent = `95% CI: [${result.confidence_interval_95[0].toFixed(1)}, ${result.confidence_interval_95[1].toFixed(1)}]`;
-      updateTrend(result.rul);
+    function applyResult(r) {
+      setGauge(r.rul);
+      setStatus(r.rul);
+      unc.textContent = `+- ${r.uncertainty.toFixed(2)} cycles`;
+      hint.textContent = `95% CI: [${r.confidence_interval_95[0].toFixed(1)}, ${r.confidence_interval_95[1].toFixed(1)}]`;
+      pushTrend(r.rul);
     }
 
-    async function runSimulation() {
+    async function simulate() {
       simulateBtn.disabled = true;
       simulateBtn.textContent = "Running...";
       try {
         const samples = await loadSamples();
         const idx = Math.floor(Math.random() * samples.length);
         const result = await callApi({ engine_id: idx + 1, sequence: samples[idx] });
-        applyPrediction(result);
-      } catch (error) {
-        hint.textContent = String(error.message || error);
+        applyResult(result);
+      } catch (err) {
+        hint.textContent = String(err.message || err);
       } finally {
         simulateBtn.disabled = false;
-        simulateBtn.textContent = "Simulate Engine";
+        simulateBtn.textContent = "Simulate FD004 Engine";
       }
     }
 
-    async function runCsvPrediction() {
+    async function predictCsv() {
       if (!csvInput.files.length) {
         hint.textContent = "Choose a CSV file first.";
         return;
       }
-
       csvBtn.disabled = true;
       csvBtn.textContent = "Running...";
       try {
         const text = await csvInput.files[0].text();
         const result = await callApi({ engine_id: 999, csv_data: text });
-        applyPrediction(result);
-      } catch (error) {
-        hint.textContent = String(error.message || error);
+        applyResult(result);
+      } catch (err) {
+        hint.textContent = String(err.message || err);
       } finally {
         csvBtn.disabled = false;
         csvBtn.textContent = "Predict From CSV";
@@ -369,10 +239,10 @@
     }
 
     initChart();
-    updateGauge(62.0);
-    updateStatus(62.0);
-    simulateBtn.addEventListener("click", runSimulation);
-    csvBtn.addEventListener("click", runCsvPrediction);
+    setGauge(62);
+    setStatus(62);
+    simulateBtn.addEventListener("click", simulate);
+    csvBtn.addEventListener("click", predictCsv);
   </script>
 </body>
 </html>

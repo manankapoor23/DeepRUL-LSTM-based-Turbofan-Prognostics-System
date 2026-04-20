@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from pathlib import Path
 from typing import List
 
@@ -9,6 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from model.lstm_model import LSTMRULModel, mc_dropout_predict
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+FEATURE_COLUMNS_PATH = PROJECT_ROOT / "data" / "processed" / "feature_columns.json"
+RUL_CAP = 125.0
+
+FEATURE_COUNT = 15
+if FEATURE_COLUMNS_PATH.exists():
+    with open(FEATURE_COLUMNS_PATH, "r", encoding="utf-8") as fp:
+        FEATURE_COUNT = len(json.load(fp))
 
 
 class PredictRequest(BaseModel):
@@ -24,8 +35,8 @@ class PredictRequest(BaseModel):
         if len(value) != 30:
             raise ValueError("sequence must have exactly 30 timesteps")
         for row in value:
-            if len(row) != 14:
-                raise ValueError("each timestep must contain exactly 14 features")
+            if len(row) != FEATURE_COUNT:
+                raise ValueError(f"each timestep must contain exactly {FEATURE_COUNT} features")
         return value
 
 
@@ -35,49 +46,41 @@ class PredictResponse(BaseModel):
     confidence_interval_95: List[float]
 
 
-app = FastAPI(title="Turbofan RUL Inference API")
+app = FastAPI(title="FD004 RUL Inference API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-    ],
+    allow_origins=["http://localhost:5500", "http://127.0.0.1:5500"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-MODEL_PATH = Path("model/best_model.pth")
+MODEL_PATH = PROJECT_ROOT / "model" / "best_model.pth"
 MODEL = None
 DEVICE = torch.device("cpu")
-RUL_CAP = 125.0
 
 
 def parse_csv_sequence(csv_data: str) -> List[List[float]]:
     rows: List[List[float]] = []
     reader = csv.reader(io.StringIO(csv_data.strip()))
     for row in reader:
-        cleaned = [col.strip() for col in row if col.strip() != ""]
-        if not cleaned:
-            continue
-        rows.append([float(v) for v in cleaned])
+        cleaned = [col.strip() for col in row if col.strip()]
+        if cleaned:
+            rows.append([float(v) for v in cleaned])
 
     if len(rows) != 30:
         raise ValueError("csv_data must contain exactly 30 rows")
-
     for row in rows:
-        if len(row) != 14:
-            raise ValueError("each csv_data row must contain exactly 14 values")
-
+        if len(row) != FEATURE_COUNT:
+            raise ValueError(f"each csv_data row must contain exactly {FEATURE_COUNT} values")
     return rows
 
 
 @app.on_event("startup")
 def load_model_once() -> None:
     global MODEL
-    model = LSTMRULModel(input_size=14, hidden_size=128, num_layers=2, dropout=0.2)
-
+    model = LSTMRULModel(input_size=FEATURE_COUNT, hidden_size=128, num_layers=2, dropout=0.2)
     if not MODEL_PATH.exists():
         MODEL = None
         return
@@ -90,16 +93,13 @@ def load_model_once() -> None:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "dataset": "FD004", "feature_count": FEATURE_COUNT}
 
 
 @app.post("/predict_rul", response_model=PredictResponse)
 def predict_rul(payload: PredictRequest) -> PredictResponse:
     if MODEL is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Model checkpoint not found. Train the model to create model/best_model.pth first.",
-        )
+        raise HTTPException(status_code=503, detail="Model checkpoint missing. Run training first.")
 
     if payload.sequence is None and payload.csv_data is None:
         raise HTTPException(status_code=422, detail="Provide either 'sequence' or 'csv_data'.")
@@ -109,16 +109,16 @@ def predict_rul(payload: PredictRequest) -> PredictResponse:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    sequence_tensor = torch.tensor([sequence], dtype=torch.float32, device=DEVICE)
-    mean, std = mc_dropout_predict(MODEL, sequence_tensor, n_passes=50)
+    x = torch.tensor([sequence], dtype=torch.float32, device=DEVICE)
+    mean, std = mc_dropout_predict(MODEL, x, n_passes=50)
 
     rul = float(mean.item()) * RUL_CAP
-    uncertainty = float(std.item()) * RUL_CAP
-    ci_low = rul - 1.96 * uncertainty
-    ci_high = rul + 1.96 * uncertainty
+    unc = float(std.item()) * RUL_CAP
+    ci_low = rul - 1.96 * unc
+    ci_high = rul + 1.96 * unc
 
     return PredictResponse(
         rul=round(rul, 1),
-        uncertainty=round(uncertainty, 2),
+        uncertainty=round(unc, 2),
         confidence_interval_95=[round(ci_low, 1), round(ci_high, 1)],
     )
