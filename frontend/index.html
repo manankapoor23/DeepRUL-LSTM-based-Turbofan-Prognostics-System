@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Turbofan RUL Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --line: #30363d;
+      --text: #e6edf3;
+      --muted: #9da7b3;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --green: #22c55e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1200px 600px at 10% -20%, #1f2937 0%, transparent 60%), var(--bg);
+      color: var(--text);
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(900px, 100%);
+      background: linear-gradient(160deg, #171d27 0%, var(--panel) 80%);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      letter-spacing: 0.4px;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 22px;
+      align-items: center;
+    }
+
+    .gauge-wrap {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .readout {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .metric {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
+    .metric .value {
+      font-size: 1.18rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border: 1px solid transparent;
+    }
+
+    .badge.healthy { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.4); color: #86efac; }
+    .badge.monitor { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.45); color: #fcd34d; }
+    .badge.critical { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.45); color: #fca5a5; }
+
+    button {
+      margin-top: 8px;
+      background: linear-gradient(90deg, #f59e0b, #fb923c);
+      color: #101214;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.28);
+    }
+
+    .hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 760px) {
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Rolls-Royce Turbofan RUL Monitor</h1>
+    <p class="subtitle">MC Dropout inference over FD001 test sequences</p>
+
+    <div class="row">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 420 240" aria-label="RUL gauge">
+          <path id="gauge-track" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#28313b" stroke-width="22" stroke-linecap="round"></path>
+          <path id="gauge-fill" d="M 40 200 A 170 170 0 0 1 380 200" fill="none" stroke="#f59e0b" stroke-width="22" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534"></path>
+          <text x="210" y="155" text-anchor="middle" fill="#e6edf3" font-size="42" font-weight="700" id="gauge-value">--</text>
+          <text x="210" y="182" text-anchor="middle" fill="#9da7b3" font-size="14">Remaining Useful Life (cycles)</text>
+          <text x="40" y="222" fill="#9da7b3" font-size="12">0</text>
+          <text x="368" y="222" fill="#9da7b3" font-size="12">125</text>
+        </svg>
+      </div>
+
+      <div class="readout">
+        <div class="metric">
+          <div class="label">Mean RUL</div>
+          <div class="value" id="mean-rul">-- cycles</div>
+        </div>
+
+        <div class="metric">
+          <div class="label">Uncertainty</div>
+          <div class="value" id="std-rul">+- -- cycles</div>
+        </div>
+
+        <div class="metric">
+          <div class="label">Status</div>
+          <span class="badge monitor" id="status-badge">MONITOR</span>
+        </div>
+
+        <button id="simulate-btn">Simulate Engine</button>
+        <div class="hint" id="hint">Backend URL: http://localhost:8000/predict_rul</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:8000/predict_rul";
+    const SAMPLE_URL = "../data/processed/test_sequences_sample.json";
+
+    const fillPath = document.getElementById("gauge-fill");
+    const gaugeValue = document.getElementById("gauge-value");
+    const meanRulEl = document.getElementById("mean-rul");
+    const stdRulEl = document.getElementById("std-rul");
+    const statusBadge = document.getElementById("status-badge");
+    const hint = document.getElementById("hint");
+    const button = document.getElementById("simulate-btn");
+
+    let cachedSamples = null;
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function blendColor(from, to, t) {
+      const r = Math.round(lerp(from[0], to[0], t));
+      const g = Math.round(lerp(from[1], to[1], t));
+      const b = Math.round(lerp(from[2], to[2], t));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function updateGauge(meanRul) {
+      const clamped = Math.max(0, Math.min(125, meanRul));
+      const progress = clamped / 125;
+      const pathLength = 534;
+      fillPath.style.strokeDashoffset = String(pathLength * (1 - progress));
+
+      // Higher RUL -> amber, lower RUL -> red.
+      const amber = [245, 158, 11];
+      const red = [239, 68, 68];
+      fillPath.style.stroke = blendColor(red, amber, progress);
+
+      gaugeValue.textContent = clamped.toFixed(1);
+    }
+
+    function updateStatus(meanRul) {
+      statusBadge.className = "badge";
+      if (meanRul > 80) {
+        statusBadge.classList.add("healthy");
+        statusBadge.textContent = "HEALTHY";
+      } else if (meanRul >= 40) {
+        statusBadge.classList.add("monitor");
+        statusBadge.textContent = "MONITOR";
+      } else {
+        statusBadge.classList.add("critical");
+        statusBadge.textContent = "CRITICAL";
+      }
+    }
+
+    async function loadSampleSequences() {
+      if (cachedSamples) return cachedSamples;
+      const res = await fetch(SAMPLE_URL);
+      if (!res.ok) {
+        throw new Error("Unable to load sample test sequences. Run preprocessing notebook first.");
+      }
+      const data = await res.json();
+      cachedSamples = data.samples;
+      return cachedSamples;
+    }
+
+    function pickRandomSample(samples) {
+      const idx = Math.floor(Math.random() * samples.length);
+      return { idx, sequence: samples[idx] };
+    }
+
+    async function simulate() {
+      button.disabled = true;
+      button.textContent = "Running...";
+
+      try {
+        const samples = await loadSampleSequences();
+        const picked = pickRandomSample(samples);
+
+        const payload = {
+          engine_id: picked.idx + 1,
+          sequence: picked.sequence,
+        };
+
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const msg = await response.text();
+          throw new Error(`API error: ${msg}`);
+        }
+
+        const result = await response.json();
+        meanRulEl.textContent = `${result.mean_rul.toFixed(1)} cycles`;
+        stdRulEl.textContent = `+- ${result.std_rul.toFixed(1)} cycles`;
+        updateGauge(result.mean_rul);
+        updateStatus(result.mean_rul);
+        hint.textContent = `95% CI: [${result.confidence_interval_95[0].toFixed(1)}, ${result.confidence_interval_95[1].toFixed(1)}]`;
+      } catch (error) {
+        hint.textContent = error.message;
+      } finally {
+        button.disabled = false;
+        button.textContent = "Simulate Engine";
+      }
+    }
+
+    button.addEventListener("click", simulate);
+    updateGauge(62.5);
+  </script>
+</body>
+</html>

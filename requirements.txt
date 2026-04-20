@@ -1,0 +1,11 @@
+numpy==2.4.4
+pandas==2.3.3
+scikit-learn==1.8.0
+matplotlib==3.10.8
+seaborn==0.13.2
+torch==2.11.0
+fastapi==0.135.3
+uvicorn==0.44.0
+pydantic==2.12.5
+ipykernel==7.2.0
+nbformat==5.10.4

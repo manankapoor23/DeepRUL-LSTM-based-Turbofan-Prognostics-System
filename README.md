@@ -1,187 +1,114 @@
-# DeepRUL-LSTM-based-Turbofan-Prognostics-System
+# Turbofan Engine Remaining Useful Life (RUL) Prediction
 
-LSTM-based Remaining Useful Life (RUL) prediction system for NASA CMAPSS turbofan engine data, with uncertainty estimation, domain adaptation, and MLOps utilities.
-
-## Overview
-
-This project predicts engine RUL from multivariate sensor time series using a stacked LSTM.
-It includes:
-
-- Data preprocessing pipeline for CMAPSS
-- Piecewise RUL labeling (capped at 125)
-- LSTM regression model with RMSE training objective
-- Monte Carlo dropout for prediction uncertainty
-- Domain adaptation from FD001 to FD003
-- MLflow experiment tracking and model registration helpers
-- DVC pipeline generation support
-
-## Dataset
-
-This repository uses the NASA CMAPSS dataset.
-
-- Kaggle mirror: https://www.kaggle.com/datasets/behrad3d/nasa-cmaps
-- NASA PCoE source: https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/
-
-After download, place the extracted dataset folder in the project root as:
-
-```text
-CMAPSSData/
-```
-
-Expected files include:
-
-```text
-CMAPSSData/train_FD001.txt
-CMAPSSData/test_FD001.txt
-CMAPSSData/RUL_FD001.txt
-CMAPSSData/train_FD003.txt
-CMAPSSData/test_FD003.txt
-CMAPSSData/RUL_FD003.txt
-```
+This project is a presentation-ready, end-to-end LSTM pipeline for turbofan Remaining Useful Life prediction in a Rolls-Royce Aerospace predictive maintenance context. It focuses on clear preprocessing, explainable model behavior, and uncertainty-aware inference with Monte Carlo Dropout. The implementation uses NASA C-MAPSS FD001 only, runs on CPU, and includes notebooks, a FastAPI backend, and a lightweight frontend monitor. The goal is correctness and readability over MLOps complexity.
 
 ## Project Structure
 
 ```text
-dataset.py            # CMAPSS loading and feature definitions
-data_engineering.py   # RUL labels, scaling, sequence generation
-model.py              # LSTM model, RMSE loss, NASA score, MC dropout
-train.py              # Training/evaluation loop + MLflow logging
-domain_adaptation.py  # FD001 -> FD003 adaptation (freeze encoder, tune head)
-mlops.py              # Experiment comparison, model registry, DVC yaml writer
-requirements.txt      # Python dependencies
-README.md             # Main documentation
+turbofan-rul/
+├── data/
+│   ├── raw/
+│   │   ├── train_FD001.txt
+│   │   ├── test_FD001.txt
+│   │   └── RUL_FD001.txt
+│   └── processed/
+├── notebooks/
+│   ├── 01_data_preprocessing.ipynb
+│   ├── 02_model_training.ipynb
+│   ├── 03_evaluation.ipynb
+│   └── 04_inference_demo.ipynb
+├── model/
+│   ├── lstm_model.py
+│   └── best_model.pth
+├── api/
+│   └── main.py
+├── frontend/
+│   └── index.html
+├── requirements.txt
+└── README.md
 ```
 
-## Method Summary
+## Setup
 
-1. RUL labeling
-- Training labels are computed per engine as: max_cycle - current_cycle
-- Labels are capped at 125 cycles (piecewise degradation assumption)
-
-2. Feature processing
-- Uses operational settings (`op1`, `op2`, `op3`) and selected informative sensors
-- MinMax scaling is fit on training data and persisted as `artifacts/scaler.pkl`
-
-3. Sequence modeling
-- Sliding windows of length 30 are built per engine
-- Target is the RUL value at the final timestep of each window
-
-4. Uncertainty estimation
-- Dropout remains active at inference
-- 50 stochastic forward passes provide mean prediction and standard deviation
-
-5. Domain adaptation
-- Source model trained on FD001
-- LSTM encoder frozen, regression head fine-tuned on FD003
-
-## Installation
-
-Use Python 3.10+ recommended.
-
+1. Clone repository and enter it.
 ```bash
-python -m venv .venv
+git clone <your-repo-url>
+cd <your-repo-folder>
+```
+
+2. Create and activate virtual environment.
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
+```
+
+3. Install pinned dependencies.
+```bash
 pip install -r requirements.txt
 ```
 
-## Quick Start
+4. Prepare FD001 data.
+- If you already have CMAPSS files in `CMAPSSData/`, copy FD001 files into `data/raw/`:
+```bash
+mkdir -p data/raw
+cp CMAPSSData/train_FD001.txt data/raw/
+cp CMAPSSData/test_FD001.txt data/raw/
+cp CMAPSSData/RUL_FD001.txt data/raw/
+```
+- Otherwise, download NASA C-MAPSS (or Kaggle mirror), then place FD001 files in `data/raw/`.
 
-1. Train baseline on FD001
+## Run Notebooks In Order
+
+1. `notebooks/01_data_preprocessing.ipynb`  
+   Loads raw FD001 data, applies preprocessing pipeline, visualizes RUL and correlations, and saves processed artifacts.
+
+2. `notebooks/02_model_training.ipynb`  
+   Trains the specified LSTM model with engine-level split and early stopping, saves checkpoint and required training plots.
+
+3. `notebooks/03_evaluation.ipynb`  
+   Evaluates on test set with RMSE/MAE/R2 and visualizes predicted-vs-actual plus trajectory-level behavior for 3 engines.
+
+4. `notebooks/04_inference_demo.ipynb`  
+   Runs MC Dropout over time for one test engine and visualizes mean prediction with 95% uncertainty band.
+
+## FastAPI Backend
+
+Start the API from repository root:
 
 ```bash
-python train.py
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-2. Launch MLflow UI
+Available endpoints:
+- `GET /health` -> `{"status": "ok"}`
+- `POST /predict_rul` with payload:
+```json
+{
+  "engine_id": 1,
+  "sequence": [[0.52, 0.41, 0.38, 0.22, 0.10, 0.55, 0.62, 0.71, 0.49, 0.33, 0.45, 0.29, 0.51, 0.40]]
+}
+```
+
+## Frontend
+
+Serve the repository root as static files, then open the dashboard:
 
 ```bash
-mlflow ui
+python3 -m http.server 5500
 ```
 
-Open: http://127.0.0.1:5000
+Open:
+- `http://localhost:5500/frontend/index.html`
 
-3. Run domain adaptation (FD001 -> FD003)
+The frontend calls `http://localhost:8000/predict_rul`, renders an arc-based RUL gauge, displays uncertainty, and tags health state as HEALTHY / MONITOR / CRITICAL.
 
-```bash
-python domain_adaptation.py
-```
+## Notes
 
-4. Compare runs and register best model
-
-```bash
-python mlops.py --compare
-python mlops.py --register
-```
-
-5. Generate DVC pipeline file
-
-```bash
-python mlops.py --dvc
-```
-
-Then initialize and reproduce pipeline:
-
-```bash
-dvc init
-dvc repro
-```
-
-## What Gets Saved
-
-Outputs are written to `artifacts/`:
-
-- `best_model.pt` - best FD001 checkpoint
-- `adapted_FD003.pt` - adapted model checkpoint
-- `scaler.pkl` - fitted MinMax scaler
-- `sequences_FD001.npz` / `sequences_FD003.npz` - processed data
-- plots (`loss_curves.png`, `predictions.png`, `scatter.png`, adaptation plot)
-
-MLflow logs:
-
-- Hyperparameters
-- Training/validation/test metrics
-- Uncertainty metrics
-- Model artifacts
-
-## Typical Performance (FD001)
-
-Expected ranges (hardware/data split dependent):
-
-- RMSE: ~13 to 16 cycles
-- NASA score: ~200 to 400
-- Average uncertainty (MC std): ~3 to 6 cycles
-
-## CLI Reference
-
-Training:
-
-```bash
-python train.py
-```
-
-Domain adaptation:
-
-```bash
-python domain_adaptation.py
-```
-
-MLOps utilities:
-
-```bash
-python mlops.py --compare
-python mlops.py --register
-python mlops.py --dvc
-```
-
-## Troubleshooting
-
-- File not found for CMAPSS files:
-	- Ensure dataset is in `CMAPSSData/` at the project root.
-- `no checkpoint at artifacts/best_model.pt` during adaptation:
-	- Run `python train.py` first.
-- MLflow command not found:
-	- Reinstall dependencies with `pip install -r requirements.txt`.
-
-## Citation Note
-
-If you use this project in academic/industrial work, cite the NASA CMAPSS dataset source and mention the benchmark subset(s) used.
+- CPU-only implementation (no CUDA assumptions).
+- Model architecture is fixed to:
+  - `LSTM(input_size=14, hidden_size=64, num_layers=2, dropout=0.3, batch_first=True)`
+  - `Linear(64 -> 1)`
+- Checkpoint path: `model/best_model.pth`.
+- Required training plots are saved in `model/`:
+  - `training_loss_curve.png`
+  - `predicted_vs_actual_rul.png`
